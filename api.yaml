@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: sammika/api:3.0
+          ports:
+            - containerPort: 4000
+          # env:
+          #   - name: DB_URL
+          #     value: mongodb://username:password@mongodb-service
+
+          env:
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-username
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-password
+            - name: DB_URL
+              # value:  we can directly include the url here.But if database utl changed in the future all the configuration filed would need to be update.
+              # Instead of that we use a config map to store the url
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_url
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+spec:
+  selector:
+    app: api
+  #type: LoadBalancer
+  type: NodePort
+  #Here we provide LoadBalancer type to define this as a external sevice. But name is bit confusing.Because internal services are also responsible for load balancing
+  ports:
+    - protocol: TCP
+      port: 4000
+      targetPort: 4000
+      nodePort: 30005
+      # here we provide nodePort to specify the external port. This is unique property for external services.
+      #This port value should be within 30000 to 32767. And using this port browser can access to the external service.

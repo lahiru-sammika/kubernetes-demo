@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express
+  labels:
+    app: mongo-express
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-express
+  template:
+    metadata:
+      labels:
+        app: mongo-express
+    spec:
+      containers:
+        - name: mongo-express
+          image: mongo-express
+          ports:
+            - containerPort: 8081
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-username
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongo-root-password
+            - name: ME_CONFIG_MONGODB_SERVER
+              # value:  we can directly include the url here.But if database utl changed in the future all the configuration filed would need to be update.
+              # Instead of that we use a config map to store the url
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-express-service
+spec:
+  selector:
+    app: mongo-express
+  type: LoadBalancer
+  # type: NodePort
+  #Here we provide LoadBalancer type to define this as a external sevice. But name is bit confusing.Because internal services are also responsible for load balancing
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      # nodePort: 30000
+      # here we provide nodePort to specify the external port. This is unique property for external services.
+      #This port value should be within 30000 to 32767. And using this port browser can access to the external service.
